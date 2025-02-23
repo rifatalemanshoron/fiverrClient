@@ -72,7 +72,7 @@ wsServer.on("connection", (ws) => {
 
 // HTTP stuff
 app.use("/js", express.static("js"));
-app.get("/audio", (req, res) =>
+app.get("/", (req, res) =>
   res.sendFile(path.resolve(__dirname, "./audio_client.html"))
 );
 app.listen(HTTP_PORT, () =>
