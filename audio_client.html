@@ -1,0 +1,186 @@
+<html>
+  <head>
+    <title>PCM Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="http://fonts.googleapis.com/css?family=Roboto"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script
+      src="https://cdn.plot.ly/plotly-latest.min.js"
+      charset="utf-8"
+    ></script>
+    <script src="https://unpkg.com/pcm-player"></script>
+    <script type="js/worker.js"></script>
+  </head>
+  <style>
+    body {
+      font-family: "Roboto", sans-serif;
+    }
+
+    .button {
+      border: none;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+    }
+  </style>
+  <body>
+    <h1>Audio Streaming From ESP32</h1>
+    <p>Connect to WebSocket by pressing the [Connect] button first!</p>
+    <button id="connectBtn" class="button" onclick="connect()">Connect</button>
+    <input
+      type="range"
+      max="1"
+      value="0.5"
+      min="0"
+      id="range"
+      onchange="changeVolume(event)"
+      step="0.1"
+    /><br />
+    <button id="pauseBtn" class="button" onclick="pause()">
+      Pause Playing
+    </button>
+    <button id="continueBtn" class="button" onclick="continuePlay()">
+      Continue Playing
+    </button>
+    <div id="graph"></div>
+    <button id="playSongBtn" class="button">Start Playing Song</button>
+
+    <script>
+      var connectBtn = document.getElementById("connectBtn");
+      var pauseBtn = document.getElementById("pauseBtn");
+      var continueBtn = document.getElementById("continueBtn");
+      var playSongBtn = document.getElementById("playSongBtn");
+
+      connectBtn.disabled = false;
+      pauseBtn.disabled = true;
+      continueBtn.disabled = true;
+      var ws; //Globally accessable
+
+//============= Graphing Plotting code Start ===============//
+
+      // Worker for handling data to plot the graph
+      var worker = new Worker("js/worker.js");
+      worker.addEventListener(
+        "message",
+        function (e) {
+          graphDataArray = graphDataArray.concat(e.data);
+          graphDataArray.splice(0, 1);
+
+          var data_update = {
+            y: [graphDataArray],
+          };
+
+          Plotly.update("graph", data_update);
+        },
+        false
+      );
+
+      // Initialize graph data
+      const arrayLength = 100;
+      var graphDataArray = [];
+      for (var i = 0; i < arrayLength; i++) {
+        graphDataArray[i] = 0;
+      }
+
+      // Plotly graph setup
+      var layout = {
+        title: "Streaming Data",
+        paper_bgcolor: "#8DC5E4",
+        plot_bgcolor: "#8DC5E4",
+        xaxis: {
+          domain: [0, 1],
+          showticklabels: false,
+          color: "#FFF",
+        },
+        yaxis: { domain: [0, 1], color: "#FFF", rangemode: "auto" },
+      };
+
+      Plotly.newPlot(
+        "graph",
+        [
+          {
+            y: graphDataArray,
+            mode: "lines",
+            line: { color: "#EA7F1B" },
+          },
+        ],
+        layout
+      );
+//============= Graphing Plotting code END ===============//
+
+
+
+//============= PCM Player Code Starts ===============//
+      let player;
+      window.connect = function connect() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          console.log("Already connected!");
+          return;
+        }
+
+        connectBtn.disabled = true;
+        pauseBtn.disabled = false;
+        const WS_URL = "ws://localhost:8888";
+        ws = new WebSocket(WS_URL);
+        ws.binaryType = "arraybuffer";
+
+        ws.addEventListener("message", function (event) {
+          if (continueBtn.disabled) {
+            //console.log("Data: ", event.data);    //For Debugging 
+            player.feed(event.data);
+            worker.postMessage(event.data); // Remove if slowing down the browser.
+          }
+        });
+
+        ws.addEventListener("open", function () {
+          console.log("WebSocket connected!");
+        });
+
+        ws.addEventListener("close", function () {
+          console.log("WebSocket closed!");
+        });
+
+        player = new PCMPlayer({
+          inputCodec: "Int16",
+          channels: 1,
+          sampleRate: 16000,
+        });
+      };
+
+      window.changeVolume = function changeVolume(e) {
+        player.volume(document.querySelector("#range").value);
+      };
+
+      window.pause = async function pause() {
+        pauseBtn.disabled = true;
+        continueBtn.disabled = false;
+        await player.pause();
+      };
+
+      window.continuePlay = function continuePlay() {
+        player.continue();
+        pauseBtn.disabled = false;
+        continueBtn.disabled = true;
+      };
+//======================= PCM Player code END ============================//
+
+//============== Sending command to the server to send PCM Data to esp32 ================//
+      playSongBtn.addEventListener("click", function () {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {// Ensure WebSocket is connected before sending
+          console.log("WebSocket is not connected! Please connect first.");
+          return;
+        }
+
+        console.log("Playing song");
+        ws.send("BROWSER|play");  //"BROWSER| identifer is used to let the server know this msg came from Browser"
+      });
+    </script>
+  </body>
+</html>
