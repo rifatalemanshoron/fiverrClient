@@ -63,7 +63,7 @@
       continueBtn.disabled = true;
       var ws; //Globally accessable
 
-//============= Graphing Plotting code Start ===============//
+      //============= Graphing Plotting code Start ===============//
 
       // Worker for handling data to plot the graph
       var worker = new Worker("js/worker.js");
@@ -113,11 +113,9 @@
         ],
         layout
       );
-//============= Graphing Plotting code END ===============//
+      //============= Graphing Plotting code END ===============//
 
-
-
-//============= PCM Player Code Starts ===============//
+      //============= PCM Player Code Starts ===============//
       let player;
       window.connect = function connect() {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -127,13 +125,16 @@
 
         connectBtn.disabled = true;
         pauseBtn.disabled = false;
-        const WS_URL = "ws://localhost:8888";
+        const WS_URL =
+          location.protocol === "https:"
+            ? `wss://${location.host}`
+            : `ws://${location.host}`;
         ws = new WebSocket(WS_URL);
         ws.binaryType = "arraybuffer";
 
         ws.addEventListener("message", function (event) {
           if (continueBtn.disabled) {
-            //console.log("Data: ", event.data);    //For Debugging 
+            //console.log("Data: ", event.data);    //For Debugging
             player.feed(event.data);
             worker.postMessage(event.data); // Remove if slowing down the browser.
           }
@@ -169,17 +170,18 @@
         pauseBtn.disabled = false;
         continueBtn.disabled = true;
       };
-//======================= PCM Player code END ============================//
+      //======================= PCM Player code END ============================//
 
-//============== Sending command to the server to send PCM Data to esp32 ================//
+      //============== Sending command to the server to send PCM Data to esp32 ================//
       playSongBtn.addEventListener("click", function () {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {// Ensure WebSocket is connected before sending
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          // Ensure WebSocket is connected before sending
           console.log("WebSocket is not connected! Please connect first.");
           return;
         }
 
         console.log("Playing song");
-        ws.send("BROWSER|play");  //"BROWSER| identifer is used to let the server know this msg came from Browser"
+        ws.send("BROWSER|play"); //"BROWSER| identifer is used to let the server know this msg came from Browser"
       });
     </script>
   </body>

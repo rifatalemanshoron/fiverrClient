@@ -9,11 +9,13 @@ const inputFile = "beat it.mp3"; // MP3 file to stream
 const sampleRate = 16000; // ESP32-Speaker Sample Rate
 const chunkSize = 1024; // 1024 bytes per chunk
 
-const WS_PORT = process.env.WS_PORT || 8888;
-const HTTP_PORT = process.env.HTTP_PORT || 8000;
-
-const wsServer = new WebSocket.Server({ port: WS_PORT }, () =>
-  console.log(`WS server is listening at ws://localhost:${WS_PORT}`)
+//const WS_PORT = process.env.WS_PORT || 8888;
+const PORT = process.env.PORT || 8000;
+const server = app.listen(PORT, () =>
+  console.log(`HTTP server listening at http://localhost:${PORT}`)
+);
+const wsServer = new WebSocket.Server({ server }, () =>
+  console.log(`WS server is listening at ws://localhost:${PORT}`)
 );
 
 // array of connected websocket clients
@@ -49,6 +51,7 @@ wsServer.on("connection", (ws) => {
 //================ If the msg is not from browser then incoming data is sent to browser ==============//
     else {
       connectedClients.forEach((client, i) => {
+        console.log("data incoming")
         if (client !== ws && client.readyState === client.OPEN) {//First part of this condition is important because the data is sent to all the clients except itself
           client.send(data);
         } else if (!(client.readyState === client.OPEN)) {
@@ -75,9 +78,7 @@ app.use("/js", express.static("js"));
 app.get("/", (req, res) =>
   res.sendFile(path.resolve(__dirname, "./audio_client.html"))
 );
-app.listen(HTTP_PORT, () =>
-  console.log(`HTTP server listening at http://localhost:${HTTP_PORT}`)
-);
+
 
 function convertToPCM(INPUT_FILE, SAMPLE_RATE) {
   const ffmpegProcess = ffmpeg()
