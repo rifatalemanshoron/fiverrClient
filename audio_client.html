@@ -129,6 +129,7 @@
           location.protocol === "https:"
             ? `wss://${location.host}`
             : `ws://${location.host}`;
+        console.log(WS_URL);
         ws = new WebSocket(WS_URL);
         ws.binaryType = "arraybuffer";
 
